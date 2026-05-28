@@ -6,7 +6,9 @@ These pin the behavioral contract before the implementation exists:
 - a whole image maps to a 2D grid of snippets, rows top-to-bottom and pixels
   left-to-right (natural reading order),
 - each grid entry is consistent with ``pixel_to_rule`` for that pixel,
-- the rule geometry constants hold their expected values.
+- the rule geometry constants hold their expected values,
+- a snippet grid assembles into one ``$…$`` inline-LaTeX block per row, snippets
+  joined directly (no separator) and wrapped without inner padding.
 
 Test images are generated in-memory with Pillow; no fixture files or disk I/O
 are needed because the functions operate directly on the ``Image`` object.
@@ -18,6 +20,7 @@ from img2dots.latex import (
     RULE_HEIGHT,
     RULE_RAISE,
     RULE_WIDTH,
+    assemble_rows,
     image_to_snippets,
     pixel_to_rule,
 )
@@ -76,3 +79,44 @@ def test_rule_constants():
     assert RULE_RAISE == "10pt"
     assert RULE_WIDTH == "1pt"
     assert RULE_HEIGHT == "1pt"
+
+
+def test_assemble_rows_happy_path():
+    grid = [["A", "B"], ["C", "D"]]
+    assert assemble_rows(grid) == ["$AB$", "$CD$"]
+
+
+def test_assemble_rows_joins_without_separator():
+    row = [pixel_to_rule((255, 0, 0)), pixel_to_rule((0, 255, 0))]
+    expected = "$" + pixel_to_rule((255, 0, 0)) + pixel_to_rule((0, 255, 0)) + "$"
+    assert assemble_rows([row]) == [expected]
+
+
+def test_assemble_rows_no_inner_padding():
+    [block] = assemble_rows([["X", "Y"]])
+    assert block.startswith("$X")
+    assert block.endswith("Y$")
+
+
+def test_assemble_rows_preserves_order():
+    grid = [["top"], ["middle"], ["bottom"]]
+    assert assemble_rows(grid) == ["$top$", "$middle$", "$bottom$"]
+
+
+def test_assemble_rows_single_cell():
+    assert assemble_rows([["X"]]) == ["$X$"]
+
+
+def test_assemble_rows_empty_grid():
+    assert assemble_rows([]) == []
+
+
+def test_assemble_rows_empty_row():
+    assert assemble_rows([[]]) == ["$$"]
+
+
+def test_assemble_rows_integration_with_image_to_snippets():
+    image = Image.new("RGB", (3, 2), (10, 20, 30))
+    blocks = assemble_rows(image_to_snippets(image))
+    assert len(blocks) == 2
+    assert all(block.startswith("$") and block.endswith("$") for block in blocks)
