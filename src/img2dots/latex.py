@@ -1,10 +1,14 @@
-"""Map image pixels to colored LaTeX ``\\rule`` snippets.
+"""Build colored LaTeX from image pixels.
 
-Second stage of the pipeline: take the RGB image produced by
-:func:`img2dots.image.load_and_scale` and translate every pixel into a
-``\\textcolor[RGB]{r,g,b}{\\rule[...]{...}{...}}`` snippet. The snippets are
-returned as a 2D grid (rows top-to-bottom, pixels left-to-right) that the next
-stage assembles into ``$ … $`` line blocks.
+Covers two pipeline stages:
+
+- :func:`image_to_snippets` takes the RGB image produced by
+  :func:`img2dots.image.load_and_scale` and translates every pixel into a
+  ``\\textcolor[RGB]{r,g,b}{\\rule[...]{...}{...}}`` snippet, returned as a 2D
+  grid (rows top-to-bottom, pixels left-to-right).
+- :func:`assemble_rows` joins each grid row into a single inline-LaTeX
+  ``$…$`` block — one block per image row — ready for the file-writing stage to
+  emit as Markdown lines.
 """
 
 from PIL import Image
@@ -31,3 +35,14 @@ def image_to_snippets(image: Image.Image) -> list[list[str]]:
     width = image.width
     flat = [pixel_to_rule(pixel) for pixel in image.getdata()]
     return [flat[row * width:(row + 1) * width] for row in range(image.height)]
+
+
+def assemble_rows(grid: list[list[str]]) -> list[str]:
+    """Join each row of snippets into a single inline-LaTeX ``$…$`` block.
+
+    The outer list order is preserved (image top to bottom), so every returned
+    string is one image row, ready to become one Markdown line downstream.
+    Snippets are concatenated directly (no separator) and wrapped without inner
+    padding. An empty row yields ``"$$"``; an empty grid yields ``[]``.
+    """
+    return [f"${''.join(row)}$" for row in grid]
