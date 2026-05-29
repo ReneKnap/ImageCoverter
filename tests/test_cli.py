@@ -1,16 +1,37 @@
-"""Smoke tests for the img2dots CLI scaffold.
+"""Tests for the img2dots CLI (img2dots.cli).
 
-These pin the CLI contract before the implementation exists:
+Pin the behavioral contract of the wired-up CLI:
 - ``cli.main(argv) -> int`` returns an exit code,
-- ``--help`` exits 0 (argparse default),
-- a valid invocation prints a placeholder message and returns 0 (scaffold only),
-- a missing required argument errors out.
+- ``--help`` exits 0 and a missing input errors (argparse defaults),
+- a valid invocation runs the full pipeline, writes Markdown, returns 0,
+- ``--max-size`` bounds the dot grid and defaults to 64,
+- ``convert`` orchestrates the pipeline and lets errors propagate,
+- expected failures (missing/invalid input, bad output path, non-positive
+  ``--max-size``) print to stderr and return 1 without a traceback.
+
+Test images are generated in-memory with Pillow and written to ``tmp_path``;
+no fixture files are needed.
 """
 
 import pytest
+from PIL import Image
 
 import img2dots
 from img2dots import cli
+from img2dots.cli import convert, main
+
+
+def _write_image(tmp_path, size=(10, 10), mode="RGB", color=(255, 0, 0)):
+    path = tmp_path / "input.png"
+    Image.new(mode, size, color).save(path)
+    return path
+
+
+def _paragraphs(text):
+    return [block for block in text.split("\n\n") if block.strip()]
+
+
+# --- argparse-level contract -------------------------------------------------
 
 
 def test_version_is_nonempty_string():
@@ -20,21 +41,94 @@ def test_version_is_nonempty_string():
 
 def test_help_exits_zero():
     with pytest.raises(SystemExit) as exc:
-        cli.main(["--help"])
+        main(["--help"])
     assert exc.value.code == 0
-
-
-def test_placeholder_returns_zero():
-    assert cli.main(["x.png", "-o", "out.md"]) == 0
-
-
-def test_placeholder_message(capsys):
-    cli.main(["x.png", "-o", "out.md"])
-    output = "".join(capsys.readouterr()).lower()
-    assert "not implemented" in output
 
 
 def test_missing_input_errors():
     with pytest.raises(SystemExit) as exc:
-        cli.main([])
+        main([])
     assert exc.value.code != 0
+
+
+# --- happy path --------------------------------------------------------------
+
+
+def test_converts_and_returns_zero(tmp_path):
+    image = _write_image(tmp_path, (4, 3))
+    out = tmp_path / "out.md"
+    assert main([str(image), "-o", str(out)]) == 0
+    content = out.read_text(encoding="utf-8")
+    assert "$" in content
+    assert "\\rule" in content
+    assert "\\textcolor" in content
+
+
+def test_success_message_reports_output_path(tmp_path, capsys):
+    image = _write_image(tmp_path, (4, 3))
+    out = tmp_path / "out.md"
+    main([str(image), "-o", str(out)])
+    assert str(out) in capsys.readouterr().out
+
+
+# --- convert() pipeline integration -----------------------------------------
+
+
+def test_convert_writes_one_paragraph_per_row(tmp_path):
+    image = _write_image(tmp_path, (1, 2))  # width 1, height 2 -> two rows
+    out = tmp_path / "out.md"
+    convert(image, out, max_size=64)
+    assert len(_paragraphs(out.read_text(encoding="utf-8"))) == 2
+
+
+def test_convert_raises_on_missing_file(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        convert(tmp_path / "nope.png", tmp_path / "out.md", max_size=64)
+
+
+# --- --max-size --------------------------------------------------------------
+
+
+def test_max_size_limits_row_count(tmp_path):
+    image = _write_image(tmp_path, (100, 100))
+    out = tmp_path / "out.md"
+    main([str(image), "-o", str(out), "--max-size", "8"])
+    assert len(_paragraphs(out.read_text(encoding="utf-8"))) == 8
+
+
+def test_default_max_size_is_64(tmp_path):
+    image = _write_image(tmp_path, (128, 128))
+    out = tmp_path / "out.md"
+    main([str(image), "-o", str(out)])
+    assert len(_paragraphs(out.read_text(encoding="utf-8"))) == 64
+
+
+# --- error paths -------------------------------------------------------------
+
+
+def test_missing_input_file_returns_1(tmp_path, capsys):
+    out = tmp_path / "out.md"
+    assert main([str(tmp_path / "nope.png"), "-o", str(out)]) == 1
+    assert capsys.readouterr().err.strip()
+
+
+def test_invalid_image_returns_1(tmp_path, capsys):
+    bogus = tmp_path / "input.png"
+    bogus.write_text("not an image", encoding="utf-8")
+    out = tmp_path / "out.md"
+    assert main([str(bogus), "-o", str(out)]) == 1
+    assert capsys.readouterr().err.strip()
+
+
+def test_max_size_zero_returns_1(tmp_path, capsys):
+    image = _write_image(tmp_path, (4, 3))
+    out = tmp_path / "out.md"
+    assert main([str(image), "-o", str(out), "--max-size", "0"]) == 1
+    assert "size" in capsys.readouterr().err.lower()
+
+
+def test_missing_output_dir_returns_1(tmp_path, capsys):
+    image = _write_image(tmp_path, (4, 3))
+    out = tmp_path / "missing" / "out.md"
+    assert main([str(image), "-o", str(out)]) == 1
+    assert capsys.readouterr().err.strip()
