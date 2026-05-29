@@ -27,8 +27,12 @@ def _write_image(tmp_path, size=(10, 10), mode="RGB", color=(255, 0, 0)):
     return path
 
 
-def _paragraphs(text):
-    return [block for block in text.split("\n\n") if block.strip()]
+def _row_count(text):
+    """Number of image rows in the stacked single-block output.
+
+    Rows are separated by a negative ``\\hspace``; H rows yield H-1 of them.
+    """
+    return text.count("\\hspace") + 1
 
 
 # --- argparse-level contract -------------------------------------------------
@@ -74,11 +78,13 @@ def test_success_message_reports_output_path(tmp_path, capsys):
 # --- convert() pipeline integration -----------------------------------------
 
 
-def test_convert_writes_one_paragraph_per_row(tmp_path):
+def test_convert_stacks_rows_in_one_block(tmp_path):
     image = _write_image(tmp_path, (1, 2))  # width 1, height 2 -> two rows
     out = tmp_path / "out.md"
     convert(image, out, max_size=64)
-    assert len(_paragraphs(out.read_text(encoding="utf-8"))) == 2
+    content = out.read_text(encoding="utf-8")
+    assert "\n\n" not in content  # a single block, not paragraph-per-row
+    assert _row_count(content) == 2
 
 
 def test_convert_raises_on_missing_file(tmp_path):
@@ -93,14 +99,14 @@ def test_max_size_limits_row_count(tmp_path):
     image = _write_image(tmp_path, (100, 100))
     out = tmp_path / "out.md"
     main([str(image), "-o", str(out), "--max-size", "8"])
-    assert len(_paragraphs(out.read_text(encoding="utf-8"))) == 8
+    assert _row_count(out.read_text(encoding="utf-8")) == 8
 
 
 def test_default_max_size_is_64(tmp_path):
     image = _write_image(tmp_path, (128, 128))
     out = tmp_path / "out.md"
     main([str(image), "-o", str(out)])
-    assert len(_paragraphs(out.read_text(encoding="utf-8"))) == 64
+    assert _row_count(out.read_text(encoding="utf-8")) == 64
 
 
 # --- error paths -------------------------------------------------------------
