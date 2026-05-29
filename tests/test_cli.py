@@ -109,6 +109,23 @@ def test_default_max_size_is_64(tmp_path):
     assert _row_count(out.read_text(encoding="utf-8")) == 64
 
 
+# --- --dot-size --------------------------------------------------------------
+
+
+def test_dot_size_enlarges_dots(tmp_path):
+    image = _write_image(tmp_path, (4, 3))
+    out = tmp_path / "out.md"
+    assert main([str(image), "-o", str(out), "--dot-size", "2"]) == 0
+    assert "{2pt}{2pt}" in out.read_text(encoding="utf-8")
+
+
+def test_convert_accepts_dot_size(tmp_path):
+    image = _write_image(tmp_path, (4, 3))
+    out = tmp_path / "out.md"
+    convert(image, out, max_size=64, dot_size=2)
+    assert "{2pt}{2pt}" in out.read_text(encoding="utf-8")
+
+
 # --- error paths -------------------------------------------------------------
 
 
@@ -130,6 +147,13 @@ def test_max_size_zero_returns_1(tmp_path, capsys):
     image = _write_image(tmp_path, (4, 3))
     out = tmp_path / "out.md"
     assert main([str(image), "-o", str(out), "--max-size", "0"]) == 1
+    assert "size" in capsys.readouterr().err.lower()
+
+
+def test_dot_size_zero_returns_1(tmp_path, capsys):
+    image = _write_image(tmp_path, (4, 3))
+    out = tmp_path / "out.md"
+    assert main([str(image), "-o", str(out), "--dot-size", "0"]) == 1
     assert "size" in capsys.readouterr().err.lower()
 
 
