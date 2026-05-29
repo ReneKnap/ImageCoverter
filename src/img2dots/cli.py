@@ -1,14 +1,19 @@
 """Command-line interface for img2dots.
 
-Scaffold entry point: it parses arguments and reports that the conversion is
-not implemented yet. The actual image-to-LaTeX pipeline lands in later work
-items.
+Wires the full pipeline together: load and scale the input image, map every
+pixel to a colored LaTeX ``\\rule`` snippet, assemble one inline-``$…$`` block
+per image row, and write the rows to a Markdown file.
 """
 
 import argparse
+import sys
 from collections.abc import Sequence
+from pathlib import Path
 
 from img2dots import __version__
+from img2dots.image import DEFAULT_MAX_EDGE, load_and_scale
+from img2dots.latex import assemble_rows, image_to_snippets
+from img2dots.output import write_markdown
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -24,6 +29,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="path to the Markdown output file",
     )
     parser.add_argument(
+        "--max-size",
+        type=int,
+        default=DEFAULT_MAX_EDGE,
+        help=f"maximum edge length in pixels (default: {DEFAULT_MAX_EDGE})",
+    )
+    parser.add_argument(
         "--version",
         action="version",
         version=f"%(prog)s {__version__}",
@@ -31,11 +42,36 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def convert(input_path: str | Path, output_path: str | Path, max_size: int) -> None:
+    """Run the full image-to-Markdown pipeline and write the result.
+
+    Loads and downscales the image at ``input_path`` to fit within ``max_size``,
+    maps each pixel to a colored LaTeX ``\\rule`` snippet, assembles one inline
+    ``$…$`` block per image row, and writes them to ``output_path``. Errors from
+    any stage (missing or invalid image, unwritable output) propagate to the
+    caller.
+    """
+    image = load_and_scale(input_path, max_edge=max_size)
+    rows = assemble_rows(image_to_snippets(image))
+    write_markdown(rows, output_path)
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    print(
-        f"img2dots: conversion not implemented yet "
-        f"(input={args.input!r}, output={args.output!r})."
-    )
+
+    if args.max_size <= 0:
+        print(
+            f"img2dots: --max-size must be a positive size, got {args.max_size}.",
+            file=sys.stderr,
+        )
+        return 1
+
+    try:
+        convert(args.input, args.output, args.max_size)
+    except OSError as error:
+        print(f"img2dots: {error}", file=sys.stderr)
+        return 1
+
+    print(f"img2dots: wrote {args.output}")
     return 0
