@@ -1,18 +1,19 @@
-"""Write assembled LaTeX rows to a Markdown file.
+"""Write assembled LaTeX content to a Markdown file.
 
-Final stage before the CLI: take the inline-LaTeX ``$…$`` blocks produced by
-:func:`img2dots.latex.assemble_rows` and persist them as a Markdown file. Each
-image row becomes its own Markdown paragraph (rows separated by a blank line),
-so a renderer lays the dot grid out line by line.
+Final stage of the pipeline: persist the inline-LaTeX produced by
+:func:`img2dots.latex.stack_image` (a single ``$…$`` block holding the whole
+stacked dot grid) to a Markdown file. The writer itself is generic — it joins
+the given list of strings into separate Markdown paragraphs — so it also handles
+the degenerate single-element list the current pipeline passes it.
 """
 
 from pathlib import Path
 
 
 def write_markdown(lines: list[str], path: str | Path) -> None:
-    """Write ``lines`` to ``path`` as Markdown, one paragraph per row.
+    """Write ``lines`` to ``path`` as Markdown, one paragraph per element.
 
-    Rows are separated by a blank line and the file ends with a trailing
+    Elements are separated by a blank line and the file ends with a trailing
     newline when there is content. An empty ``lines`` list yields an empty
     (0-byte) file. An existing file at ``path`` is overwritten.
     """

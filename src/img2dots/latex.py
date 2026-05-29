@@ -1,48 +1,55 @@
-"""Build colored LaTeX from image pixels.
+"""Build colored LaTeX from image pixels and stack them into one math block.
 
-Covers two pipeline stages:
+Two responsibilities:
 
-- :func:`image_to_snippets` takes the RGB image produced by
-  :func:`img2dots.image.load_and_scale` and translates every pixel into a
-  ``\\textcolor[RGB]{r,g,b}{\\rule[...]{...}{...}}`` snippet, returned as a 2D
-  grid (rows top-to-bottom, pixels left-to-right).
-- :func:`assemble_rows` joins each grid row into a single inline-LaTeX
-  ``$…$`` block — one block per image row — ready for the file-writing stage to
-  emit as Markdown lines.
+- :func:`pixel_to_rule` translates a single ``(r, g, b)`` pixel into a colored
+  ``\\textcolor[RGB]{r,g,b}{\\rule[<raise>]{...}{...}}`` snippet. The vertical
+  ``raise`` is selectable so a caller can place the dot at any height.
+- :func:`stack_image` renders a whole RGB image as a single inline-LaTeX ``$…$``
+  block. Each image row is drawn one dot-height lower than the previous one, and
+  rows are separated by a negative ``\\hspace`` that returns the cursor to the
+  left edge — so the dots stack directly on top of one another with no vertical
+  gap. This output format is recorded in ADR-0003 and targets MathJax.
 """
 
 from PIL import Image
 
-RULE_RAISE = "10pt"
-RULE_WIDTH = "1pt"
-RULE_HEIGHT = "1pt"
+RULE_RAISE_PT = 10
+RULE_WIDTH_PT = 1
+RULE_HEIGHT_PT = 1
 
-_RULE = f"\\rule[{RULE_RAISE}]{{{RULE_WIDTH}}}{{{RULE_HEIGHT}}}"
+RULE_RAISE = f"{RULE_RAISE_PT}pt"
+RULE_WIDTH = f"{RULE_WIDTH_PT}pt"
+RULE_HEIGHT = f"{RULE_HEIGHT_PT}pt"
 
 
-def pixel_to_rule(rgb: tuple[int, int, int]) -> str:
-    """Return the colored LaTeX ``\\rule`` snippet for a single ``(r, g, b)`` pixel."""
+def pixel_to_rule(rgb: tuple[int, int, int], raise_pt: str = RULE_RAISE) -> str:
+    """Return the colored LaTeX ``\\rule`` snippet for one ``(r, g, b)`` pixel.
+
+    ``raise_pt`` is the rule's vertical offset above the baseline (a LaTeX
+    dimension such as ``"10pt"`` or ``"-5pt"``); it defaults to ``RULE_RAISE``.
+    """
     r, g, b = rgb
-    return f"\\textcolor[RGB]{{{r},{g},{b}}}{{{_RULE}}}"
+    return f"\\textcolor[RGB]{{{r},{g},{b}}}{{\\rule[{raise_pt}]{{{RULE_WIDTH}}}{{{RULE_HEIGHT}}}}}"
 
 
-def image_to_snippets(image: Image.Image) -> list[list[str]]:
-    """Map an RGB image to a 2D grid of ``\\rule`` snippets.
+def stack_image(image: Image.Image) -> str:
+    """Render ``image`` as one inline-LaTeX ``$…$`` block of stacked dot rows.
 
-    The outer list holds image rows (top to bottom), each inner list holds the
-    pixels of that row (left to right), matching natural reading order.
+    Each row is drawn one dot-height lower than the row above it, and rows are
+    separated by a negative ``\\hspace`` that resets to the left edge, so the
+    pixels form a contiguous grid with no vertical gap. An image with no pixels
+    yields an empty string.
     """
-    width = image.width
-    flat = [pixel_to_rule(pixel) for pixel in image.getdata()]
-    return [flat[row * width:(row + 1) * width] for row in range(image.height)]
+    width, height = image.width, image.height
+    if width == 0 or height == 0:
+        return ""
 
-
-def assemble_rows(grid: list[list[str]]) -> list[str]:
-    """Join each row of snippets into a single inline-LaTeX ``$…$`` block.
-
-    The outer list order is preserved (image top to bottom), so every returned
-    string is one image row, ready to become one Markdown line downstream.
-    Snippets are concatenated directly (no separator) and wrapped without inner
-    padding. An empty row yields ``"$$"``; an empty grid yields ``[]``.
-    """
-    return [f"${''.join(row)}$" for row in grid]
+    pixels = list(image.getdata())
+    hspace = f"\\hspace{{-{width * RULE_WIDTH_PT}pt}}"
+    rows = []
+    for row in range(height):
+        raise_pt = f"{RULE_RAISE_PT - row * RULE_HEIGHT_PT}pt"
+        cells = pixels[row * width:(row + 1) * width]
+        rows.append("".join(pixel_to_rule(pixel, raise_pt) for pixel in cells))
+    return f"${hspace.join(rows)}$"

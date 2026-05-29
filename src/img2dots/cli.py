@@ -12,7 +12,7 @@ from pathlib import Path
 
 from img2dots import __version__
 from img2dots.image import DEFAULT_MAX_EDGE, load_and_scale
-from img2dots.latex import assemble_rows, image_to_snippets
+from img2dots.latex import stack_image
 from img2dots.output import write_markdown
 
 
@@ -46,14 +46,12 @@ def convert(input_path: str | Path, output_path: str | Path, max_size: int) -> N
     """Run the full image-to-Markdown pipeline and write the result.
 
     Loads and downscales the image at ``input_path`` to fit within ``max_size``,
-    maps each pixel to a colored LaTeX ``\\rule`` snippet, assembles one inline
-    ``$…$`` block per image row, and writes them to ``output_path``. Errors from
-    any stage (missing or invalid image, unwritable output) propagate to the
-    caller.
+    renders it as a single inline ``$…$`` block of stacked dot rows, and writes
+    it to ``output_path``. Errors from any stage (missing or invalid image,
+    unwritable output) propagate to the caller.
     """
     image = load_and_scale(input_path, max_edge=max_size)
-    rows = assemble_rows(image_to_snippets(image))
-    write_markdown(rows, output_path)
+    write_markdown([stack_image(image)], output_path)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
