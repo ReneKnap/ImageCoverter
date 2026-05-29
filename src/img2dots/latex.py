@@ -3,53 +3,61 @@
 Two responsibilities:
 
 - :func:`pixel_to_rule` translates a single ``(r, g, b)`` pixel into a colored
-  ``\\textcolor[RGB]{r,g,b}{\\rule[<raise>]{...}{...}}`` snippet. The vertical
-  ``raise`` is selectable so a caller can place the dot at any height.
+  ``\\textcolor[RGB]{r,g,b}{\\rule[<raise>]{<size>}{<size>}}`` snippet. The
+  vertical ``raise`` and the (square) dot ``size`` are both selectable.
 - :func:`stack_image` renders a whole RGB image as a single inline-LaTeX ``$…$``
-  block. Each image row is drawn one dot-height lower than the previous one, and
+  block. Each image row is drawn one dot-size lower than the previous one, and
   rows are separated by a negative ``\\hspace`` that returns the cursor to the
   left edge — so the dots stack directly on top of one another with no vertical
-  gap. This output format is recorded in ADR-0003 and targets MathJax.
+  gap. The rule size, the ``\\hspace`` width and the per-row raise step all scale
+  with ``dot_size``, keeping the grid gap-free at any size. This format is
+  recorded in ADR-0003 and targets MathJax.
 """
 
 from PIL import Image
 
 RULE_RAISE_PT = 10
-RULE_WIDTH_PT = 1
-RULE_HEIGHT_PT = 1
-
-RULE_RAISE = f"{RULE_RAISE_PT}pt"
-RULE_WIDTH = f"{RULE_WIDTH_PT}pt"
-RULE_HEIGHT = f"{RULE_HEIGHT_PT}pt"
+DEFAULT_DOT_SIZE = 1.0
 
 
-def pixel_to_rule(rgb: tuple[int, int, int], raise_pt: str = RULE_RAISE) -> str:
+def pixel_to_rule(
+    rgb: tuple[int, int, int],
+    raise_pt: str = f"{RULE_RAISE_PT}pt",
+    size: str = f"{DEFAULT_DOT_SIZE:g}pt",
+) -> str:
     """Return the colored LaTeX ``\\rule`` snippet for one ``(r, g, b)`` pixel.
 
-    ``raise_pt`` is the rule's vertical offset above the baseline (a LaTeX
-    dimension such as ``"10pt"`` or ``"-5pt"``); it defaults to ``RULE_RAISE``.
+    ``raise_pt`` is the rule's vertical offset above the baseline and ``size`` is
+    its (square) edge length — both LaTeX dimensions such as ``"10pt"`` or
+    ``"1.5pt"``.
     """
     r, g, b = rgb
-    return f"\\textcolor[RGB]{{{r},{g},{b}}}{{\\rule[{raise_pt}]{{{RULE_WIDTH}}}{{{RULE_HEIGHT}}}}}"
+    return f"\\textcolor[RGB]{{{r},{g},{b}}}{{\\rule[{raise_pt}]{{{size}}}{{{size}}}}}"
 
 
-def stack_image(image: Image.Image) -> str:
+def stack_image(image: Image.Image, dot_size: float = DEFAULT_DOT_SIZE) -> str:
     """Render ``image`` as one inline-LaTeX ``$…$`` block of stacked dot rows.
 
-    Each row is drawn one dot-height lower than the row above it, and rows are
-    separated by a negative ``\\hspace`` that resets to the left edge, so the
-    pixels form a contiguous grid with no vertical gap. An image with no pixels
-    yields an empty string.
+    Each dot is a ``dot_size``-pt square. Each row is drawn one dot-size lower
+    than the row above it, and rows are separated by a negative ``\\hspace`` of
+    the row's width, so the dots form a contiguous grid with no vertical gap. An
+    image with no pixels yields an empty string.
     """
     width, height = image.width, image.height
     if width == 0 or height == 0:
         return ""
 
     pixels = list(image.getdata())
-    hspace = f"\\hspace{{-{width * RULE_WIDTH_PT}pt}}"
+    size = _pt(dot_size)
+    hspace = f"\\hspace{{-{_pt(width * dot_size)}}}"
     rows = []
     for row in range(height):
-        raise_pt = f"{RULE_RAISE_PT - row * RULE_HEIGHT_PT}pt"
+        raise_pt = _pt(RULE_RAISE_PT - row * dot_size)
         cells = pixels[row * width:(row + 1) * width]
-        rows.append("".join(pixel_to_rule(pixel, raise_pt) for pixel in cells))
+        rows.append("".join(pixel_to_rule(pixel, raise_pt, size) for pixel in cells))
     return f"${hspace.join(rows)}$"
+
+
+def _pt(value: float) -> str:
+    """Format ``value`` as a LaTeX pt dimension, dropping a trailing ``.0``."""
+    return f"{value:g}pt"
