@@ -10,19 +10,20 @@ Two responsibilities:
   rows are separated by a negative ``\\hspace`` that returns the cursor to the
   left edge — so the dots stack directly on top of one another with no vertical
   gap. The rule size, the ``\\hspace`` width and the per-row raise step all scale
-  with ``dot_size``, keeping the grid gap-free at any size. This format is
-  recorded in ADR-0003 and targets MathJax.
+  with ``dot_size``, keeping the grid gap-free at any size. The whole image is
+  centered on the baseline and shifted as a block by ``raise_offset``. This
+  format is recorded in ADR-0003 and targets MathJax.
 """
 
 from PIL import Image
 
-RULE_RAISE_PT = 10
 DEFAULT_DOT_SIZE = 1.0
+DEFAULT_RAISE = 0.0
 
 
 def pixel_to_rule(
     rgb: tuple[int, int, int],
-    raise_pt: str = f"{RULE_RAISE_PT}pt",
+    raise_pt: str = f"{DEFAULT_RAISE:g}pt",
     size: str = f"{DEFAULT_DOT_SIZE:g}pt",
 ) -> str:
     """Return the colored LaTeX ``\\rule`` snippet for one ``(r, g, b)`` pixel.
@@ -35,13 +36,19 @@ def pixel_to_rule(
     return f"\\textcolor[RGB]{{{r},{g},{b}}}{{\\rule[{raise_pt}]{{{size}}}{{{size}}}}}"
 
 
-def stack_image(image: Image.Image, dot_size: float = DEFAULT_DOT_SIZE) -> str:
+def stack_image(
+    image: Image.Image,
+    dot_size: float = DEFAULT_DOT_SIZE,
+    raise_offset: float = DEFAULT_RAISE,
+) -> str:
     """Render ``image`` as one inline-LaTeX ``$…$`` block of stacked dot rows.
 
     Each dot is a ``dot_size``-pt square. Each row is drawn one dot-size lower
     than the row above it, and rows are separated by a negative ``\\hspace`` of
-    the row's width, so the dots form a contiguous grid with no vertical gap. An
-    image with no pixels yields an empty string.
+    the row's width, so the dots form a contiguous grid with no vertical gap. The
+    image is centered vertically on the baseline and shifted up as a whole by
+    ``raise_offset`` pt (negative shifts it down). An image with no pixels yields
+    an empty string.
     """
     width, height = image.width, image.height
     if width == 0 or height == 0:
@@ -50,9 +57,10 @@ def stack_image(image: Image.Image, dot_size: float = DEFAULT_DOT_SIZE) -> str:
     pixels = list(image.getdata())
     size = _pt(dot_size)
     hspace = f"\\hspace{{-{_pt(width * dot_size)}}}"
+    top_raise = raise_offset + height * dot_size / 2
     rows = []
     for row in range(height):
-        raise_pt = _pt(RULE_RAISE_PT - row * dot_size)
+        raise_pt = _pt(top_raise - (row + 1) * dot_size)
         cells = pixels[row * width:(row + 1) * width]
         rows.append("".join(pixel_to_rule(pixel, raise_pt, size) for pixel in cells))
     return f"${hspace.join(rows)}$"
