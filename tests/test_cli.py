@@ -126,6 +126,47 @@ def test_convert_accepts_dot_size(tmp_path):
     assert "{2pt}{2pt}" in out.read_text(encoding="utf-8")
 
 
+# --- --raise -----------------------------------------------------------------
+
+
+def test_raise_option_shifts_image(tmp_path):
+    # 1x1 image, dot_size 1, raise 5: raise = 5 + 0.5 - 1 = 4.5pt.
+    image = _write_image(tmp_path, (1, 1))
+    out = tmp_path / "out.md"
+    assert main([str(image), "-o", str(out), "--raise", "5"]) == 0
+    assert "\\rule[4.5pt]" in out.read_text(encoding="utf-8")
+
+
+def test_raise_defaults_to_zero(tmp_path):
+    image = _write_image(tmp_path, (3, 2))
+    default_out = tmp_path / "default.md"
+    explicit_out = tmp_path / "explicit.md"
+    main([str(image), "-o", str(default_out)])
+    main([str(image), "-o", str(explicit_out), "--raise", "0"])
+    assert default_out.read_text(encoding="utf-8") == explicit_out.read_text(encoding="utf-8")
+
+
+def test_convert_accepts_raise_offset(tmp_path):
+    image = _write_image(tmp_path, (1, 1))
+    out = tmp_path / "out.md"
+    convert(image, out, max_size=64, raise_offset=5)
+    assert "\\rule[4.5pt]" in out.read_text(encoding="utf-8")
+
+
+def test_negative_raise_returns_zero(tmp_path):
+    # 1x1, dot_size 1, raise -3: raise = -3 + 0.5 - 1 = -3.5pt; negative is valid.
+    image = _write_image(tmp_path, (1, 1))
+    out = tmp_path / "out.md"
+    assert main([str(image), "-o", str(out), "--raise", "-3"]) == 0
+    assert "\\rule[-3.5pt]" in out.read_text(encoding="utf-8")
+
+
+def test_raise_zero_is_valid(tmp_path):
+    image = _write_image(tmp_path, (4, 3))
+    out = tmp_path / "out.md"
+    assert main([str(image), "-o", str(out), "--raise", "0"]) == 0
+
+
 # --- error paths -------------------------------------------------------------
 
 

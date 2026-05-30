@@ -5,6 +5,9 @@ CLAUDE.md
 # Per-project PowerShell background color (personal terminal tint)
 .pscolor
 
+# Local scratch images and rendered demo outputs
+Media/
+
 # Python
 __pycache__/
 *.py[cod]

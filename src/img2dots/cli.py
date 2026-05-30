@@ -12,7 +12,7 @@ from pathlib import Path
 
 from img2dots import __version__
 from img2dots.image import DEFAULT_MAX_EDGE, load_and_scale
-from img2dots.latex import DEFAULT_DOT_SIZE, stack_image
+from img2dots.latex import DEFAULT_DOT_SIZE, DEFAULT_RAISE, stack_image
 from img2dots.output import write_markdown
 
 
@@ -41,6 +41,14 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"dot edge length in pt (default: {DEFAULT_DOT_SIZE:g})",
     )
     parser.add_argument(
+        "--raise",
+        dest="raise_offset",
+        type=float,
+        default=DEFAULT_RAISE,
+        help=f"vertical offset of the image in pt; 0 centers it on the line, "
+        f"positive lifts it (default: {DEFAULT_RAISE:g})",
+    )
+    parser.add_argument(
         "--version",
         action="version",
         version=f"%(prog)s {__version__}",
@@ -53,16 +61,18 @@ def convert(
     output_path: str | Path,
     max_size: int,
     dot_size: float = DEFAULT_DOT_SIZE,
+    raise_offset: float = DEFAULT_RAISE,
 ) -> None:
     """Run the full image-to-Markdown pipeline and write the result.
 
     Loads and downscales the image at ``input_path`` to fit within ``max_size``,
-    renders it as a single inline ``$…$`` block of stacked ``dot_size``-pt dots,
-    and writes it to ``output_path``. Errors from any stage (missing or invalid
-    image, unwritable output) propagate to the caller.
+    renders it as a single inline ``$…$`` block of stacked ``dot_size``-pt dots
+    shifted vertically by ``raise_offset`` pt, and writes it to ``output_path``.
+    Errors from any stage (missing or invalid image, unwritable output) propagate
+    to the caller.
     """
     image = load_and_scale(input_path, max_edge=max_size)
-    write_markdown([stack_image(image, dot_size)], output_path)
+    write_markdown([stack_image(image, dot_size, raise_offset)], output_path)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -78,7 +88,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 1
 
     try:
-        convert(args.input, args.output, args.max_size, args.dot_size)
+        convert(args.input, args.output, args.max_size, args.dot_size, args.raise_offset)
     except OSError as error:
         print(f"img2dots: {error}", file=sys.stderr)
         return 1
