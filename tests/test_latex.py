@@ -187,3 +187,65 @@ def test_stack_image_raise_offset_preserves_gapless_step():
     assert "\\rule[7.5pt]" in block
     assert "\\rule[6.5pt]" in block
     assert "\\rule[5.5pt]" in block
+
+
+# --- stack_image: transparency (skip fully transparent pixels) ---------------
+
+
+def test_stack_image_skips_fully_transparent_pixel():
+    # 1x1 RGBA with alpha 0: no drawn dot, advance preserved with a same-size phantom.
+    block = stack_image(Image.new("RGBA", (1, 1), (255, 0, 0, 0)))
+    assert "\\textcolor" not in block
+    assert "\\phantom{\\rule{1pt}{1pt}}" in block
+
+
+def test_stack_image_transparent_pixel_replaced_by_phantom_keeps_visible():
+    # 2x1: left pixel transparent, right pixel opaque -> one drawn dot, one phantom.
+    image = Image.new("RGBA", (2, 1))
+    image.putpixel((0, 0), (10, 20, 30, 0))
+    image.putpixel((1, 0), (255, 0, 0, 255))
+    block = stack_image(image)
+    assert block.count("\\textcolor") == 1
+    assert "\\phantom{\\rule{1pt}{1pt}}" in block
+    assert "\\textcolor[RGB]{255,0,0}" in block
+
+
+def test_stack_image_skip_phantom_scales_with_dot_size():
+    # A skipped pixel reserves exactly one dot width.
+    block = stack_image(Image.new("RGBA", (1, 1), (0, 0, 0, 0)), dot_size=2)
+    assert "\\phantom{\\rule{2pt}{2pt}}" in block
+
+
+def test_stack_image_opaque_rgba_draws_rule():
+    # Fully opaque RGBA renders a drawn dot and adds no phantom.
+    block = stack_image(Image.new("RGBA", (1, 1), (12, 34, 56, 255)))
+    assert "\\textcolor[RGB]{12,34,56}" in block
+    assert "\\phantom" not in block
+
+
+def test_stack_image_partial_alpha_is_drawn():
+    # Any alpha > 0 is drawn; only exactly 0 is skipped.
+    image = Image.new("RGBA", (2, 1))
+    image.putpixel((0, 0), (1, 2, 3, 1))
+    image.putpixel((1, 0), (4, 5, 6, 254))
+    block = stack_image(image)
+    assert block.count("\\textcolor") == 2
+    assert "\\phantom" not in block
+
+
+def test_stack_image_rgb_input_unaffected():
+    # RGB input has no alpha -> every pixel drawn, no phantom (single row).
+    block = stack_image(Image.new("RGB", (4, 1), (0, 0, 0)))
+    assert block.count("\\textcolor") == 4
+    assert "\\phantom" not in block
+
+
+def test_stack_image_fully_transparent_row_preserves_reset():
+    # A fully transparent row still resets the cursor for the next row (geometry intact).
+    image = Image.new("RGBA", (3, 2), (0, 0, 0, 255))
+    for x in range(3):
+        image.putpixel((x, 0), (0, 0, 0, 0))
+    block = stack_image(image)
+    assert block.count("\\phantom{\\rule{1pt}{1pt}}") == 3  # three skipped pixels, top row
+    assert "\\hspace{-3pt}" in block  # row reset still spans the full row width
+    assert block.count("\\textcolor") == 3  # only the opaque bottom row draws dots

@@ -5,14 +5,17 @@ Two responsibilities:
 - :func:`pixel_to_rule` translates a single ``(r, g, b)`` pixel into a colored
   ``\\textcolor[RGB]{r,g,b}{\\rule[<raise>]{<size>}{<size>}}`` snippet. The
   vertical ``raise`` and the (square) dot ``size`` are both selectable.
-- :func:`stack_image` renders a whole RGB image as a single inline-LaTeX ``$…$``
+- :func:`stack_image` renders a whole image as a single inline-LaTeX ``$…$``
   block. Each image row is drawn one dot-size lower than the previous one, and
   rows are separated by a negative ``\\hspace`` that returns the cursor to the
   left edge — so the dots stack directly on top of one another with no vertical
   gap. The rule size, the ``\\hspace`` width and the per-row raise step all scale
   with ``dot_size``, keeping the grid gap-free at any size. The whole image is
-  centered on the baseline and shifted as a block by ``raise_offset``. This
-  format is recorded in ADR-0003 and targets MathJax.
+  centered on the baseline and shifted as a block by ``raise_offset``.
+  Fully transparent pixels (alpha 0) are skipped: instead of a colored rule they
+  emit an invisible ``\\phantom`` of an identically sized rule, which reserves the
+  exact same width as a drawn dot, so the column alignment of the remaining dots
+  is preserved. This format is recorded in ADR-0003 and targets MathJax.
 """
 
 from PIL import Image
@@ -47,22 +50,31 @@ def stack_image(
     than the row above it, and rows are separated by a negative ``\\hspace`` of
     the row's width, so the dots form a contiguous grid with no vertical gap. The
     image is centered vertically on the baseline and shifted up as a whole by
-    ``raise_offset`` pt (negative shifts it down). An image with no pixels yields
-    an empty string.
+    ``raise_offset`` pt (negative shifts it down). Fully transparent pixels
+    (alpha 0) are replaced by an invisible ``\\phantom`` of an identically sized
+    rule instead of a drawn rule, reserving the same width as a dot so the
+    remaining columns stay aligned; images without an alpha channel are treated as
+    fully opaque. An image with no pixels yields an empty string.
     """
     width, height = image.width, image.height
     if width == 0 or height == 0:
         return ""
 
-    pixels = list(image.getdata())
+    pixels = list(image.convert("RGBA").getdata())
     size = _pt(dot_size)
+    skip = f"\\phantom{{\\rule{{{size}}}{{{size}}}}}"
     hspace = f"\\hspace{{-{_pt(width * dot_size)}}}"
     top_raise = raise_offset + height * dot_size / 2
     rows = []
     for row in range(height):
         raise_pt = _pt(top_raise - (row + 1) * dot_size)
         cells = pixels[row * width:(row + 1) * width]
-        rows.append("".join(pixel_to_rule(pixel, raise_pt, size) for pixel in cells))
+        rows.append(
+            "".join(
+                skip if a == 0 else pixel_to_rule((r, g, b), raise_pt, size)
+                for r, g, b, a in cells
+            )
+        )
     return f"${hspace.join(rows)}$"
 
 
