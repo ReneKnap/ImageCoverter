@@ -16,6 +16,7 @@ are needed.
 from PIL import Image
 
 from img2dots.latex import (
+    DEFAULT_ALPHA_THRESHOLD,
     DEFAULT_DOT_SIZE,
     DEFAULT_RAISE,
     _pt,
@@ -223,14 +224,15 @@ def test_stack_image_opaque_rgba_draws_rule():
     assert "\\phantom" not in block
 
 
-def test_stack_image_partial_alpha_is_drawn():
-    # Any alpha > 0 is drawn; only exactly 0 is skipped.
+def test_stack_image_default_threshold_skips_faint_pixels():
+    # Default threshold is 50%: a barely-visible pixel is skipped, a near-opaque one drawn.
     image = Image.new("RGBA", (2, 1))
     image.putpixel((0, 0), (1, 2, 3, 1))
     image.putpixel((1, 0), (4, 5, 6, 254))
     block = stack_image(image)
-    assert block.count("\\textcolor") == 2
-    assert "\\phantom" not in block
+    assert block.count("\\textcolor") == 1
+    assert "\\textcolor[RGB]{4,5,6}" in block
+    assert "\\phantom" in block
 
 
 def test_stack_image_rgb_input_unaffected():
@@ -249,3 +251,50 @@ def test_stack_image_fully_transparent_row_preserves_reset():
     assert block.count("\\phantom{\\rule{1pt}{1pt}}") == 3  # three skipped pixels, top row
     assert "\\hspace{-3pt}" in block  # row reset still spans the full row width
     assert block.count("\\textcolor") == 3  # only the opaque bottom row draws dots
+
+
+# --- stack_image: alpha threshold --------------------------------------------
+
+
+def test_alpha_threshold_default_constant():
+    assert DEFAULT_ALPHA_THRESHOLD == 127.5
+
+
+def test_stack_image_default_threshold_boundary():
+    # Default 50% of 255 = 127.5: alpha 127 is skipped, alpha 128 is drawn.
+    image = Image.new("RGBA", (2, 1))
+    image.putpixel((0, 0), (10, 20, 30, 127))
+    image.putpixel((1, 0), (40, 50, 60, 128))
+    block = stack_image(image)
+    assert block.count("\\textcolor") == 1
+    assert "\\textcolor[RGB]{40,50,60}" in block
+    assert "\\phantom" in block
+
+
+def test_stack_image_threshold_zero_draws_fully_transparent():
+    # Threshold 0: a >= 0 is always true, so even a fully transparent pixel is drawn.
+    block = stack_image(Image.new("RGBA", (1, 1), (10, 20, 30, 0)), alpha_threshold=0)
+    assert "\\textcolor[RGB]{10,20,30}" in block
+    assert "\\phantom" not in block
+
+
+def test_stack_image_threshold_custom_cutoff():
+    # Threshold 200: alpha 199 is skipped, alpha 200 is drawn.
+    image = Image.new("RGBA", (2, 1))
+    image.putpixel((0, 0), (10, 20, 30, 199))
+    image.putpixel((1, 0), (40, 50, 60, 200))
+    block = stack_image(image, alpha_threshold=200)
+    assert block.count("\\textcolor") == 1
+    assert "\\textcolor[RGB]{40,50,60}" in block
+    assert "\\phantom" in block
+
+
+def test_stack_image_threshold_255_draws_only_opaque():
+    # Threshold 255: only fully opaque pixels are drawn.
+    image = Image.new("RGBA", (2, 1))
+    image.putpixel((0, 0), (10, 20, 30, 254))
+    image.putpixel((1, 0), (40, 50, 60, 255))
+    block = stack_image(image, alpha_threshold=255)
+    assert block.count("\\textcolor") == 1
+    assert "\\textcolor[RGB]{40,50,60}" in block
+    assert "\\phantom" in block

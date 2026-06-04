@@ -12,16 +12,17 @@ Two responsibilities:
   gap. The rule size, the ``\\hspace`` width and the per-row raise step all scale
   with ``dot_size``, keeping the grid gap-free at any size. The whole image is
   centered on the baseline and shifted as a block by ``raise_offset``.
-  Fully transparent pixels (alpha 0) are skipped: instead of a colored rule they
-  emit an invisible ``\\phantom`` of an identically sized rule, which reserves the
-  exact same width as a drawn dot, so the column alignment of the remaining dots
-  is preserved. This format is recorded in ADR-0003 and targets MathJax.
+  Pixels below an alpha threshold are skipped: instead of a colored rule they emit
+  an invisible ``\\phantom`` of an identically sized rule, which reserves the exact
+  same width as a drawn dot, so the column alignment of the remaining dots is
+  preserved. This format is recorded in ADR-0003 and targets MathJax.
 """
 
 from PIL import Image
 
 DEFAULT_DOT_SIZE = 1.0
 DEFAULT_RAISE = 0.0
+DEFAULT_ALPHA_THRESHOLD = 127.5  # raw alpha (0-255), i.e. 50% opacity
 
 
 def pixel_to_rule(
@@ -43,6 +44,7 @@ def stack_image(
     image: Image.Image,
     dot_size: float = DEFAULT_DOT_SIZE,
     raise_offset: float = DEFAULT_RAISE,
+    alpha_threshold: float = DEFAULT_ALPHA_THRESHOLD,
 ) -> str:
     """Render ``image`` as one inline-LaTeX ``$…$`` block of stacked dot rows.
 
@@ -50,11 +52,12 @@ def stack_image(
     than the row above it, and rows are separated by a negative ``\\hspace`` of
     the row's width, so the dots form a contiguous grid with no vertical gap. The
     image is centered vertically on the baseline and shifted up as a whole by
-    ``raise_offset`` pt (negative shifts it down). Fully transparent pixels
-    (alpha 0) are replaced by an invisible ``\\phantom`` of an identically sized
-    rule instead of a drawn rule, reserving the same width as a dot so the
-    remaining columns stay aligned; images without an alpha channel are treated as
-    fully opaque. An image with no pixels yields an empty string.
+    ``raise_offset`` pt (negative shifts it down). A pixel is drawn only if its
+    alpha is at least ``alpha_threshold`` (a raw 0-255 value); fainter pixels are
+    replaced by an invisible ``\\phantom`` of an identically sized rule, reserving
+    the same width as a dot so the remaining columns stay aligned. Images without
+    an alpha channel are treated as fully opaque. An image with no pixels yields
+    an empty string.
     """
     width, height = image.width, image.height
     if width == 0 or height == 0:
@@ -71,7 +74,7 @@ def stack_image(
         cells = pixels[row * width:(row + 1) * width]
         rows.append(
             "".join(
-                skip if a == 0 else pixel_to_rule((r, g, b), raise_pt, size)
+                pixel_to_rule((r, g, b), raise_pt, size) if a >= alpha_threshold else skip
                 for r, g, b, a in cells
             )
         )
