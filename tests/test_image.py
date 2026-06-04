@@ -39,16 +39,23 @@ def test_small_image_not_upscaled(tmp_path):
     assert result.size == (40, 30)
 
 
-def test_result_mode_is_rgb_from_rgba(tmp_path):
+def test_result_mode_is_rgba_from_rgba(tmp_path):
     path = _write_image(tmp_path, (10, 10), mode="RGBA", color=(255, 0, 0, 128))
     result = load_and_scale(path)
-    assert result.mode == "RGB"
+    assert result.mode == "RGBA"
 
 
-def test_result_mode_is_rgb_from_palette(tmp_path):
+def test_result_mode_is_rgba_from_palette(tmp_path):
     path = _write_image(tmp_path, (10, 10), mode="P", color=5)
     result = load_and_scale(path)
-    assert result.mode == "RGB"
+    assert result.mode == "RGBA"
+
+
+def test_rgb_input_gets_opaque_alpha(tmp_path):
+    path = _write_image(tmp_path, (10, 10), mode="RGB", color=(255, 0, 0))
+    result = load_and_scale(path)
+    assert result.mode == "RGBA"
+    assert result.getpixel((0, 0))[3] == 255
 
 
 def test_nearest_resample_is_selectable(tmp_path):
