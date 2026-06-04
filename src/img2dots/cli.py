@@ -12,8 +12,16 @@ from pathlib import Path
 
 from img2dots import __version__
 from img2dots.image import DEFAULT_MAX_EDGE, load_and_scale
-from img2dots.latex import DEFAULT_DOT_SIZE, DEFAULT_RAISE, stack_image
+from img2dots.latex import (
+    DEFAULT_ALPHA_THRESHOLD,
+    DEFAULT_DOT_SIZE,
+    DEFAULT_RAISE,
+    stack_image,
+)
 from img2dots.output import write_markdown
+
+# CLI exposes the alpha threshold in percent; latex works in raw 0-255 values.
+DEFAULT_ALPHA_THRESHOLD_PERCENT = DEFAULT_ALPHA_THRESHOLD / 255 * 100
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -49,6 +57,13 @@ def build_parser() -> argparse.ArgumentParser:
         f"positive lifts it (default: {DEFAULT_RAISE:g})",
     )
     parser.add_argument(
+        "--alpha-threshold",
+        type=float,
+        default=DEFAULT_ALPHA_THRESHOLD_PERCENT,
+        help=f"minimum opacity in percent (0-100) for a pixel to be drawn; fainter "
+        f"pixels are skipped (default: {DEFAULT_ALPHA_THRESHOLD_PERCENT:g})",
+    )
+    parser.add_argument(
         "--version",
         action="version",
         version=f"%(prog)s {__version__}",
@@ -62,17 +77,19 @@ def convert(
     max_size: int,
     dot_size: float = DEFAULT_DOT_SIZE,
     raise_offset: float = DEFAULT_RAISE,
+    alpha_threshold: float = DEFAULT_ALPHA_THRESHOLD,
 ) -> None:
     """Run the full image-to-Markdown pipeline and write the result.
 
     Loads and downscales the image at ``input_path`` to fit within ``max_size``,
     renders it as a single inline ``$…$`` block of stacked ``dot_size``-pt dots
     shifted vertically by ``raise_offset`` pt, and writes it to ``output_path``.
+    Pixels with an alpha below ``alpha_threshold`` (a raw 0-255 value) are skipped.
     Errors from any stage (missing or invalid image, unwritable output) propagate
     to the caller.
     """
     image = load_and_scale(input_path, max_edge=max_size)
-    write_markdown([stack_image(image, dot_size, raise_offset)], output_path)
+    write_markdown([stack_image(image, dot_size, raise_offset, alpha_threshold)], output_path)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -87,8 +104,24 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             return 1
 
+    if not 0 <= args.alpha_threshold <= 100:
+        print(
+            f"img2dots: --alpha-threshold must be between 0 and 100, "
+            f"got {args.alpha_threshold:g}.",
+            file=sys.stderr,
+        )
+        return 1
+
+    alpha_cutoff = args.alpha_threshold / 100 * 255
     try:
-        convert(args.input, args.output, args.max_size, args.dot_size, args.raise_offset)
+        convert(
+            args.input,
+            args.output,
+            args.max_size,
+            args.dot_size,
+            args.raise_offset,
+            alpha_cutoff,
+        )
     except OSError as error:
         print(f"img2dots: {error}", file=sys.stderr)
         return 1

@@ -27,6 +27,15 @@ def _write_image(tmp_path, size=(10, 10), mode="RGB", color=(255, 0, 0)):
     return path
 
 
+def _write_rgba(tmp_path, size, pixels):
+    """Write an RGBA PNG from a flat, row-major list of ``(r, g, b, a)`` tuples."""
+    path = tmp_path / "input.png"
+    image = Image.new("RGBA", size)
+    image.putdata(pixels)
+    image.save(path)
+    return path
+
+
 def _row_count(text):
     """Number of image rows in the stacked single-block output.
 
@@ -167,6 +176,45 @@ def test_raise_zero_is_valid(tmp_path):
     assert main([str(image), "-o", str(out), "--raise", "0"]) == 0
 
 
+# --- --alpha-threshold -------------------------------------------------------
+
+
+def test_alpha_threshold_default_skips_faint_pixels(tmp_path):
+    path = _write_rgba(tmp_path, (2, 1), [(1, 2, 3, 100), (4, 5, 6, 255)])
+    out = tmp_path / "out.md"
+    assert main([str(path), "-o", str(out)]) == 0
+    content = out.read_text(encoding="utf-8")
+    assert content.count("\\textcolor") == 1  # faint pixel (alpha 100 < 50%) skipped
+    assert "\\phantom" in content
+
+
+def test_alpha_threshold_zero_draws_everything(tmp_path):
+    path = _write_rgba(tmp_path, (1, 1), [(10, 20, 30, 0)])
+    out = tmp_path / "out.md"
+    assert main([str(path), "-o", str(out), "--alpha-threshold", "0"]) == 0
+    content = out.read_text(encoding="utf-8")
+    assert "\\textcolor[RGB]{10,20,30}" in content  # even fully transparent is drawn
+    assert "\\phantom" not in content
+
+
+def test_alpha_threshold_100_draws_only_opaque(tmp_path):
+    path = _write_rgba(tmp_path, (1, 1), [(10, 20, 30, 200)])
+    out = tmp_path / "out.md"
+    assert main([str(path), "-o", str(out), "--alpha-threshold", "100"]) == 0
+    content = out.read_text(encoding="utf-8")
+    assert "\\textcolor" not in content  # alpha 200 < 100% (255) -> skipped
+    assert "\\phantom" in content
+
+
+def test_convert_accepts_alpha_threshold(tmp_path):
+    path = _write_rgba(tmp_path, (1, 1), [(10, 20, 30, 100)])
+    out = tmp_path / "out.md"
+    convert(path, out, max_size=64, alpha_threshold=200)  # raw 0-255 cutoff
+    content = out.read_text(encoding="utf-8")
+    assert "\\textcolor" not in content
+    assert "\\phantom" in content
+
+
 # --- error paths -------------------------------------------------------------
 
 
@@ -202,4 +250,18 @@ def test_missing_output_dir_returns_1(tmp_path, capsys):
     image = _write_image(tmp_path, (4, 3))
     out = tmp_path / "missing" / "out.md"
     assert main([str(image), "-o", str(out)]) == 1
+    assert capsys.readouterr().err.strip()
+
+
+def test_alpha_threshold_above_100_returns_1(tmp_path, capsys):
+    image = _write_image(tmp_path, (4, 3))
+    out = tmp_path / "out.md"
+    assert main([str(image), "-o", str(out), "--alpha-threshold", "150"]) == 1
+    assert "between 0 and 100" in capsys.readouterr().err.lower()
+
+
+def test_alpha_threshold_negative_returns_1(tmp_path, capsys):
+    image = _write_image(tmp_path, (4, 3))
+    out = tmp_path / "out.md"
+    assert main([str(image), "-o", str(out), "--alpha-threshold", "-5"]) == 1
     assert capsys.readouterr().err.strip()
