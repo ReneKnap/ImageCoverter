@@ -63,7 +63,7 @@ def stack_image(
     if width == 0 or height == 0:
         return ""
 
-    pixels = list(image.convert("RGBA").get_flattened_data())
+    pixels = list(image.convert("RGBA").getdata())
     size = _pt(dot_size)
     skip = f"\\phantom{{\\rule{{{size}}}{{{size}}}}}"
     hspace = f"\\hspace{{-{_pt(width * dot_size)}}}"
