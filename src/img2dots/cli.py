@@ -10,6 +10,8 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
+from PIL import UnidentifiedImageError
+
 from img2dots import __version__
 from img2dots.image import DEFAULT_MAX_EDGE, load_and_scale
 from img2dots.latex import (
@@ -92,25 +94,34 @@ def convert(
     write_markdown([stack_image(image, dot_size, raise_offset, alpha_threshold)], output_path)
 
 
+def _error(message: str) -> int:
+    """Print a CLI error to stderr with the standard prefix and return exit code 1."""
+    print(f"img2dots: {message}", file=sys.stderr)
+    return 1
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
     for name, value in (("--max-size", args.max_size), ("--dot-size", args.dot_size)):
         if value <= 0:
-            print(
-                f"img2dots: {name} must be a positive size, got {value}.",
-                file=sys.stderr,
-            )
-            return 1
+            return _error(f"{name} must be a positive size, got {value}.")
 
     if not 0 <= args.alpha_threshold <= 100:
-        print(
-            f"img2dots: --alpha-threshold must be between 0 and 100, "
-            f"got {args.alpha_threshold:g}.",
-            file=sys.stderr,
+        return _error(
+            f"--alpha-threshold must be between 0 and 100, got {args.alpha_threshold:g}."
         )
-        return 1
+
+    input_path = Path(args.input)
+    if not input_path.exists():
+        return _error(f"input file not found: {args.input}")
+    if input_path.is_dir():
+        return _error(f"input is not a file (it is a directory): {args.input}")
+
+    output_dir = Path(args.output).parent
+    if not output_dir.exists():
+        return _error(f"output directory does not exist: {output_dir}")
 
     alpha_cutoff = args.alpha_threshold / 100 * 255
     try:
@@ -122,9 +133,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.raise_offset,
             alpha_cutoff,
         )
+    except UnidentifiedImageError:
+        return _error(f"{args.input} is not a recognized image file.")
     except OSError as error:
-        print(f"img2dots: {error}", file=sys.stderr)
-        return 1
+        reason = error.strerror or "could not read or write file"
+        return _error(f"{reason}: {error.filename or args.input}")
 
     print(f"img2dots: wrote {args.output}")
     return 0

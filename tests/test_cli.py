@@ -221,7 +221,21 @@ def test_convert_accepts_alpha_threshold(tmp_path):
 def test_missing_input_file_returns_1(tmp_path, capsys):
     out = tmp_path / "out.md"
     assert main([str(tmp_path / "nope.png"), "-o", str(out)]) == 1
-    assert capsys.readouterr().err.strip()
+    err = capsys.readouterr().err
+    assert "input file not found" in err.lower()
+    assert "[Errno" not in err  # no raw OS error noise
+
+
+def test_directory_as_input_returns_1(tmp_path, capsys):
+    directory = tmp_path / "a_dir"
+    directory.mkdir()
+    out = tmp_path / "out.md"
+    assert main([str(directory), "-o", str(out)]) == 1
+    err = capsys.readouterr().err.lower()
+    assert "is not a file" in err
+    assert "director" in err  # names the directory case explicitly
+    assert "permission denied" not in err  # not the confusing Windows wording
+    assert "[errno" not in err
 
 
 def test_invalid_image_returns_1(tmp_path, capsys):
@@ -229,7 +243,9 @@ def test_invalid_image_returns_1(tmp_path, capsys):
     bogus.write_text("not an image", encoding="utf-8")
     out = tmp_path / "out.md"
     assert main([str(bogus), "-o", str(out)]) == 1
-    assert capsys.readouterr().err.strip()
+    err = capsys.readouterr().err
+    assert "not a recognized image file" in err.lower()
+    assert "[Errno" not in err
 
 
 def test_max_size_zero_returns_1(tmp_path, capsys):
@@ -250,7 +266,9 @@ def test_missing_output_dir_returns_1(tmp_path, capsys):
     image = _write_image(tmp_path, (4, 3))
     out = tmp_path / "missing" / "out.md"
     assert main([str(image), "-o", str(out)]) == 1
-    assert capsys.readouterr().err.strip()
+    err = capsys.readouterr().err
+    assert "output directory does not exist" in err.lower()
+    assert "[Errno" not in err
 
 
 def test_alpha_threshold_above_100_returns_1(tmp_path, capsys):
