@@ -283,3 +283,16 @@ def test_alpha_threshold_negative_returns_1(tmp_path, capsys):
     out = tmp_path / "out.md"
     assert main([str(image), "-o", str(out), "--alpha-threshold", "-5"]) == 1
     assert capsys.readouterr().err.strip()
+
+
+def test_unwritable_output_returns_1(tmp_path, capsys):
+    # Output path is an existing directory: pre-checks pass (its parent exists),
+    # but writing to it raises OSError -> caught, exit 1 with a clean message.
+    image = _write_image(tmp_path, (4, 3))
+    out_dir = tmp_path / "out_is_a_dir"
+    out_dir.mkdir()
+    assert main([str(image), "-o", str(out_dir)]) == 1
+    err = capsys.readouterr().err
+    assert err.startswith("img2dots:")
+    assert "[Errno" not in err  # no raw OS error noise
+    assert "Traceback" not in err  # error handled, not propagated
