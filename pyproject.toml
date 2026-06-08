@@ -7,6 +7,8 @@ name = "img2dots"
 dynamic = ["version"]
 description = "Convert an image into Markdown-embedded LaTeX \\rule dots."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"
 dependencies = [
     "pillow>=10.0",
