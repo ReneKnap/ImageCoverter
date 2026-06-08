@@ -35,6 +35,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
+    "pytest-cov>=4.0",
 ]
 
 [project.scripts]
@@ -49,3 +50,14 @@ packages = ["src/img2dots"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+[tool.coverage.run]
+source = ["img2dots"]
+branch = true
+# The python -m entry shim runs only in a re-executed subprocess (see
+# tests/test_main.py), so its lines never register as in-process coverage.
+omit = ["*/img2dots/__main__.py"]
+
+[tool.coverage.report]
+fail_under = 100
+show_missing = true
