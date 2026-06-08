@@ -13,6 +13,8 @@ Test images are generated in-memory with Pillow; no fixture files or disk I/O
 are needed.
 """
 
+import warnings
+
 from PIL import Image
 
 from img2dots.latex import (
@@ -119,6 +121,13 @@ def test_stack_image_preserves_pixel_colors():
 
 def test_stack_image_empty_returns_empty():
     assert stack_image(Image.new("RGB", (0, 0))) == ""
+
+
+def test_stack_image_emits_no_deprecation_warning():
+    # Regression guard: stack_image must not use deprecated Pillow APIs.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        stack_image(Image.new("RGBA", (2, 2), (1, 2, 3, 255)))
 
 
 def test_stack_image_rule_count():
