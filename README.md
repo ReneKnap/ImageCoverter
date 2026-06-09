@@ -25,9 +25,23 @@ $\phantom{\rule{1pt}{1pt}}…\textcolor[RGB]{80,105,199}{\rule[21pt]{1pt}{1pt}}�
 Open `examples/square.md` in MathJax / Obsidian to see it as the square. The transparent
 background is skipped automatically, so the square appears on an empty canvas.
 
-> **Rendering note:** the output relies on MathJax features (negative `\hspace`, raised `\rule`).
-> It is designed for MathJax / Obsidian and does **not** render correctly with KaTeX or GitHub's
-> native Markdown math.
+## Renderer compatibility
+
+The output needs three LaTeX features to lay out correctly: `\textcolor` (colored dots),
+raised `\rule[...]` (vertical stacking), and negative `\hspace` (carriage return between rows).
+The statuses below are derived from each renderer's known support for those features, not from a
+live test of every renderer:
+
+| Renderer | Status |
+| --- | --- |
+| MathJax (incl. Obsidian) | ✅ Full |
+| KaTeX | ⚠️ Partial |
+| GitHub Markdown math | ❌ No |
+
+KaTeX renders `\rule` and `\textcolor`, but its support for raised `\rule` and negative `\hspace`
+is limited, so the rows do not stack into a contiguous image. GitHub's math subset does not support
+`\textcolor` or the layout commands at all. MathJax — the target this format was designed for —
+supports all three.
 
 ## Installation
 
