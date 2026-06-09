@@ -26,7 +26,6 @@ from img2dots.latex import (
     stack_image,
 )
 
-
 # --- constants ---------------------------------------------------------------
 
 
@@ -63,9 +62,7 @@ def test_pixel_to_rule_custom_raise():
 
 
 def test_pixel_to_rule_custom_size():
-    assert pixel_to_rule((0, 0, 0), raise_pt="10pt", size="2pt") == (
-        r"\textcolor[RGB]{0,0,0}{\rule[10pt]{2pt}{2pt}}"
-    )
+    assert pixel_to_rule((0, 0, 0), raise_pt="10pt", size="2pt") == (r"\textcolor[RGB]{0,0,0}{\rule[10pt]{2pt}{2pt}}")
 
 
 def test_pixel_to_rule_negative_raise():

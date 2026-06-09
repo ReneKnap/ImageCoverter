@@ -75,13 +75,8 @@ def stack_image(
     rows = []
     for row in range(height):
         raise_pt = _pt(top_raise - (row + 1) * dot_size)
-        cells = pixels[row * width:(row + 1) * width]
-        rows.append(
-            "".join(
-                pixel_to_rule((r, g, b), raise_pt, size) if a >= alpha_threshold else skip
-                for r, g, b, a in cells
-            )
-        )
+        cells = pixels[row * width : (row + 1) * width]
+        rows.append("".join(pixel_to_rule((r, g, b), raise_pt, size) if a >= alpha_threshold else skip for r, g, b, a in cells))
     return f"${hspace.join(rows)}$"
 
 

@@ -17,7 +17,6 @@ import pytest
 from PIL import Image
 
 import img2dots
-from img2dots import cli
 from img2dots.cli import convert, main
 
 

@@ -26,11 +26,7 @@ def _example_images():
     """All input image files shipped in ``examples/`` (empty if none/missing)."""
     if not _EXAMPLES_DIR.is_dir():
         return []
-    return sorted(
-        path
-        for path in _EXAMPLES_DIR.iterdir()
-        if path.is_file() and path.suffix.lower() in _IMAGE_SUFFIXES
-    )
+    return sorted(path for path in _EXAMPLES_DIR.iterdir() if path.is_file() and path.suffix.lower() in _IMAGE_SUFFIXES)
 
 
 def test_example_assets_exist():

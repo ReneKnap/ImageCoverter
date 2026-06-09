@@ -55,8 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
         dest="raise_offset",
         type=float,
         default=DEFAULT_RAISE,
-        help=f"vertical offset of the image in pt; 0 centers it on the line, "
-        f"positive lifts it (default: {DEFAULT_RAISE:g})",
+        help=f"vertical offset of the image in pt; 0 centers it on the line, positive lifts it (default: {DEFAULT_RAISE:g})",
     )
     parser.add_argument(
         "--alpha-threshold",
@@ -109,9 +108,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _error(f"{name} must be a positive size, got {value}.")
 
     if not 0 <= args.alpha_threshold <= 100:
-        return _error(
-            f"--alpha-threshold must be between 0 and 100, got {args.alpha_threshold:g}."
-        )
+        return _error(f"--alpha-threshold must be between 0 and 100, got {args.alpha_threshold:g}.")
 
     input_path = Path(args.input)
     if not input_path.exists():
