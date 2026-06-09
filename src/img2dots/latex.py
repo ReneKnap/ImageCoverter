@@ -63,7 +63,11 @@ def stack_image(
     if width == 0 or height == 0:
         return ""
 
-    pixels = list(image.convert("RGBA").getdata())
+    rgba = image.convert("RGBA")
+    # Pillow 12.1 deprecated getdata() in favor of get_flattened_data(), which only
+    # exists from 12.1 on; fall back to getdata() on older Pillow where it is fine.
+    flatten = getattr(rgba, "get_flattened_data", rgba.getdata)
+    pixels = list(flatten())
     size = _pt(dot_size)
     skip = f"\\phantom{{\\rule{{{size}}}{{{size}}}}}"
     hspace = f"\\hspace{{-{_pt(width * dot_size)}}}"
