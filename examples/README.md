@@ -11,8 +11,8 @@ A small, self-contained example of what `img2dots` produces.
 ## How the example was generated
 
 ```
-python examples/make_example.py                       # creates square.png
-img2dots examples/square.png -o examples/square.md     # renders square.md
+python examples/make_example.py                                   # creates square.png
+img2dots examples/square.png -o examples/square.md --max-size 40  # renders square.md
 ```
 
 `square.md` is rendered with default options only — the transparent margin and rounded corners are

@@ -13,7 +13,7 @@ Input image — [`examples/square.png`](examples/square.png) (a rounded gradient
 Generated with:
 
 ```
-img2dots examples/square.png -o examples/square.md
+img2dots examples/square.png -o examples/square.md --max-size 40
 ```
 
 Output — [`examples/square.md`](examples/square.md). It is one long inline-math line that looks like this:
