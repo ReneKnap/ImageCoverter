@@ -84,6 +84,18 @@ python -m img2dots INPUT -o OUTPUT [options]
 | `--alpha-threshold` | `50` | Minimum opacity in percent (0–100) for a pixel to be drawn; fainter pixels are skipped. |
 | `--version` | — | Print the version and exit. |
 
+## Support
+
+img2dots is free and open source. If you find it useful and want to support
+development, you can donate — entirely voluntary, and the tool stays fully
+functional without it.
+
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?logo=buymeacoffee&logoColor=000)](https://buymeacoffee.com/rekn)
+[![PayPal](https://img.shields.io/badge/PayPal-00457C?logo=paypal&logoColor=fff)](https://www.paypal.com/paypalme/reneknap)
+
+- **Buy Me a Coffee:** https://buymeacoffee.com/rekn
+- **PayPal:** https://www.paypal.com/paypalme/reneknap
+
 ## License
 
 Released under the [MIT License](LICENSE).
